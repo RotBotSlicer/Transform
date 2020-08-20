@@ -94,6 +94,7 @@ def transformation_STL_file(path, cone_type, nb_iterations):
 # Apply the functions for a STL file
 # -------------------------------------------------------------------------------
 
+# One additional comment
 
 filename = 'Wuerfel_high_low'
 foldername_original = 'STL_Modelle/'
