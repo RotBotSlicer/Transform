@@ -1,5 +1,6 @@
 import re
 import numpy as np
+import os
 import time
 
 
@@ -593,7 +594,7 @@ def translate_data(data, translate_x, translate_y, z_desired):
     Translate the GCode in x- and y-direction. Only the lines, which describe a movement will be translated.
     Additionally, if z_translation is True, the z-values will be translated such that the minimal z-value is z_desired.
     This happens by traversing the list of strings twice. If cone_type is 'inward', it is assured, that all moves
-    with no extrusion have at least a hight of z_desired.
+    with no extrusion have at least a height of z_desired.
     :param data: list
         List of strings, containing the GCode
     :param translate_x: float
@@ -652,11 +653,13 @@ def translate_data(data, translate_x, translate_y, z_desired):
     return new_data
 
 
-def backtransform_file(path, cone_type, maximal_length, angle_comp, x_shift, y_shift, z_desired):
+def backtransform_file(path, output_dir, cone_type, maximal_length, angle_comp, x_shift, y_shift, z_desired):
     """
-    Read GCode from file, backtransform and translate it.
+    Read GCode from file, backtransform, translate it and save backtransformed G-Code.
     :param path: string
         String with the path to the GCode-file
+    :param output_dir: string
+        path of directory, where transformed STL-file will be saved
     :param cone_type: string
         String, either 'outward' or 'inward', defines which transformation should be used
     :param maximal_length: float
@@ -671,6 +674,7 @@ def backtransform_file(path, cone_type, maximal_length, angle_comp, x_shift, y_s
         Desired minimal z-value
     :return: None
     """
+    start = time.time()
     if angle_comp == 'radial':
         backtransform_data = backtransform_data_radial
     elif angle_comp == 'tangential':
@@ -686,26 +690,40 @@ def backtransform_file(path, cone_type, maximal_length, angle_comp, x_shift, y_s
     data_bt = translate_data(data_bt, x_shift, y_shift, z_desired)
     data_bt_string = ''.join(data_bt)
 
-    path_write = re.sub(r'G_Codes', 'G_Codes_Backtransformed', path)
-    path_write = re.sub(r'.gcode', '_bt_' + cone_type + '_' + angle_comp + '.gcode', path_write)
-    print(path_write)
-    with open(path_write, 'w+') as f_gcode_bt:
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+    file_name = path[path.rfind('/'):]
+    file_name = file_name.replace('.gcode', '_bt_' + cone_type + '_' + angle_comp + '.gcode')
+    output_path = output_dir + file_name
+    with open(output_path, 'w+') as f_gcode_bt:
         f_gcode_bt.write(data_bt_string)
 
+    end = time.time()
+    print('GCode generated in {:.1f}s, saved in {}'.format(end - start, output_path))
     return None
 
 
 # -------------------------------------------------------------------------------
 # Apply the functions for a G-Code file
 # -------------------------------------------------------------------------------
-file_name = 'Wuerfel_klein_transformiert.gcode'
-folder_name = 'G_Codes/'
-file_path = folder_name + file_name
-transformation_type = 'inward'
-angle_type = 'radial'
 
-start = time.time()
-backtransform_file(path=file_path, cone_type=transformation_type, maximal_length=5, angle_comp=angle_type, x_shift=0,
-                   y_shift=0, z_desired=0.3)
-end = time.time()
-print('GCode generated, time needed:', end - start)
+# G-Code backtransformation function parameters
+file_path = '/home/maurus/ownCloud/Private/VT_3DDrucker/Code_old/G_Codes/Wuerfel_klein_transformiert.gcode'
+dir_backtransformed = '/home/maurus/ownCloud/Private/VT_3DDrucker/Code_old/G_Codes_Backtransformed/'
+transformation_type = 'inward'  # inward or outward
+angle_type = 'radial'  # radial or tangential
+max_length = 5  # maximal length of a segment in mm
+x_shift = 0     # shift of code in x-direction
+y_shift = 0     # shift of code in x-direction
+z_desired = 0.3     # desired height in z-direction
+
+# G-Code backtransformation function call
+backtransform_file(path=file_path,
+                   output_dir=dir_backtransformed,
+                   cone_type=transformation_type,
+                   maximal_length=max_length,
+                   angle_comp=angle_type,
+                   x_shift=x_shift,
+                   y_shift=y_shift,
+                   z_desired=z_desired
+                   )

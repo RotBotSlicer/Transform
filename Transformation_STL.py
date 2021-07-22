@@ -1,6 +1,7 @@
 import numpy as np
 from stl import mesh
 import time
+import os
 
 
 def refinement_one_triangle(triangle):
@@ -38,7 +39,7 @@ def refinement_triangulation(triangle_array, num_iterations):
     """
     refined_array = triangle_array
     for i in range(0, num_iterations):
-        n_triangles = refined_array.shape[0]*4
+        n_triangles = refined_array.shape[0] * 4
         refined_array = np.array(list(map(refinement_one_triangle, refined_array)))
         refined_array = np.reshape(refined_array, (n_triangles, 3, 3))
     return refined_array
@@ -61,16 +62,19 @@ def transformation_cone(points, cone_type):
         c = -1
     else:
         raise ValueError('{} is not a admissible type for the transformation'.format(cone_type))
-    T = (lambda x, y, z: np.array([np.sqrt(2)*x, np.sqrt(2)*y, z + c * np.sqrt(x**2 + y**2)]))
+    T = (lambda x, y, z: np.array([np.sqrt(2) * x, np.sqrt(2) * y, z + c * np.sqrt(x ** 2 + y ** 2)]))
     points_transformed = list(map(T, points[:, 0], points[:, 1], points[:, 2]))
     return np.array(points_transformed)
 
 
-def transformation_STL_file(path, cone_type, nb_iterations):
+def transformation_STL_file(path, output_dir, cone_type, nb_iterations):
     """
-    Read a stl-file, refine the triangulation and transform it according to the cone-transformation
+    Read a stl-file, refine the triangulation, transform it according to the cone-transformation and save the
+    transformed data.
     :param path: string
         path to the stl file
+    :param output_dir:
+        path of directory, where transformed STL-file will be saved
     :param cone_type: string
         String, either 'outward' or 'inward', defines which transformation should be used
     :param nb_iterations: int
@@ -78,6 +82,7 @@ def transformation_STL_file(path, cone_type, nb_iterations):
     :return: mesh object
         transformed triangulation as mesh object which can be stored as stl file
     """
+    start = time.time()
     my_mesh = mesh.Mesh.from_file(path)
     vectors = my_mesh.vectors
     vectors_refined = refinement_triangulation(vectors, nb_iterations)
@@ -87,23 +92,31 @@ def transformation_STL_file(path, cone_type, nb_iterations):
     my_mesh_transformed = np.zeros(vectors_transformed.shape[0], dtype=mesh.Mesh.dtype)
     my_mesh_transformed['vectors'] = vectors_transformed
     my_mesh_transformed = mesh.Mesh(my_mesh_transformed)
-    return my_mesh_transformed
+
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+    file_name = file_path[file_path.rfind('/'):]
+    file_name = file_name.replace('.stl', '_' + transformation_type + '_transformed.stl')
+    output_path = output_dir + file_name
+    my_mesh_transformed.save(output_path)
+    end = time.time()
+    print('STL file generated in {:.1f}s, saved in {}'.format(end - start, output_path))
+    return None
 
 
 # -------------------------------------------------------------------------------
 # Apply the functions for a STL file
 # -------------------------------------------------------------------------------
 
-# One additional comment
-
-filename = 'Wuerfel_high_low'
-foldername_original = 'STL_Modelle/'
-foldername_transformed = 'Modelle_Transformiert_Kegel/'
-filepath = foldername_original + filename + '.stl'
+# STL transformation function parameters
+file_path = '/home/maurus/ownCloud/Private/VT_3DDrucker/Code_old/STL_Modelle/Wuerfel_high_low.stl'
+dir_transformed = '/home/maurus/ownCloud/Private/VT_3DDrucker/Code_old/STL_Transformed/'
 transformation_type = 'inward'
+nb_iterations = 4
 
-start = time.time()
-transformed_STL = transformation_STL_file(path=filepath, cone_type=transformation_type, nb_iterations=4)
-transformed_STL.save(foldername_transformed + filename + '_' + transformation_type + '_transformed.stl')
-end = time.time()
-print('STL file generated, time needed:', end - start)
+# STL transformation function call
+transformation_STL_file(path=file_path,
+                        output_dir=dir_transformed,
+                        cone_type=transformation_type,
+                        nb_iterations=nb_iterations,
+                        )
