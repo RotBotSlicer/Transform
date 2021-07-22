@@ -32,16 +32,18 @@ def insert_Z(row, z_value):
     return row_new
 
 
-def replace_E(row, dist_old, dist_new):
+def replace_E(row, dist_old, dist_new, corr_value):
     """
     Replace the amount of extruded filament in a row. The new amount is proportional to the old amount, where
-    the factor is obtained by the ratio of new distance to old distance.
+    the factor is obtained by the ratio of new distance to old distance. (Due to the transformation, the amount has to be divided by sqrt(2). replace_E is accessed 2 times.)
     :param row: string
         String containing the row, of which the extruder value should be replaced
     :param dist_old: float
         Length of the distance before backtransformation
     :param dist_new: float
         Length of the distance after backtransformation
+    :param corr_value: float
+        additional correction value due to transformation	# added to have additional possiblity to correct amount of extruded material
     :return: string
         New string, containing the row with replaced extruder value
     """
@@ -53,7 +55,7 @@ def replace_E(row, dist_old, dist_new):
     if dist_old == 0:
         e_val_new = 0
     else:
-        e_val_new = round(e_val_old * dist_new / dist_old, 6)
+        e_val_new = round(e_val_old * dist_new * corr_value / dist_old, 6)
     e_str_new = 'E' + str(e_val_new)
     row_new = row[0:match_e.start(0)] + e_str_new + row[match_e.end(0):]
     return row_new
@@ -214,7 +216,7 @@ def backtransform_data_radial(data, cone_type, maximal_length):
     Backtransform G-Code, which is given in a list, each element describing a row. Rows which describe a movement
     are detected, x-, y-, z-, E- and U-values are replaced accordingly to the transformation. If a original segment
     is too long, it gets divided into sub-segments before the backtransformation. The U-values are computed
-    using the function compute_angle_radial.
+    using the function compute_angle_radial. (Added, that while travel moves, nozzle only rises 1 mm above highest printed point and not along cone.)
     :param data: list
         List of strings, describing each line of the GCode, which is to be backtransformed
     :param cone_type: string
@@ -236,7 +238,9 @@ def backtransform_data_radial(data, cone_type, maximal_length):
     x_new, y_new = 0, 0
     z_layer = 0
     angle_old = 0
+    z_max = 0
     update_x, update_y = False, False
+    visible_print = False
     if cone_type == 'outward':
         c = -1
         inward_cone = False
@@ -251,15 +255,14 @@ def backtransform_data_radial(data, cone_type, maximal_length):
         g_match = re.search(pattern_G, row)
         if g_match is None:
             new_data.append(row)
-
+            
         else:
             x_match = re.search(pattern_X, row)
             y_match = re.search(pattern_Y, row)
             z_match = re.search(pattern_Z, row)
-
             if x_match is None and y_match is None and z_match is None:
                 new_data.append(row)
-
+                
             else:
                 if z_match is not None:
                     z_layer = float(z_match.group(0).replace('Z', ''))
@@ -286,25 +289,28 @@ def backtransform_data_radial(data, cone_type, maximal_length):
                     z_vals = np.linspace(z_start, z_end, num_segm + 1)
                 else:
                     z_vals = np.array([z_layer + c * np.sqrt(x ** 2 + y ** 2) for x, y in zip(x_vals, y_vals)])
-                angle_new = compute_angle_radial(x_new_bt, y_new_bt, inward_cone)
-                angle_vals = np.array(
-                    [angle_old] + [compute_angle_radial(x_vals[k + 1], y_vals[k + 1], inward_cone) for k in
-                                   range(0, num_segm)])
+                    if e_match and (np.max(z_vals) > z_max or z_max == 0):
+                        z_max = np.max(z_vals) # save hightes point with material extruded
+                    if e_match is None and np.max(z_vals) > z_max:
+                        np.minimum(z_vals, (z_max + 1), z_vals)	# cut away all travel moves, that are higher than max height extruded + 1 mm safety
+                        # das hier könnte noch verschönert werden, in dem dann eine alle abgeschnittenen Werte mit einer einer geraden Linie ersetzt werden
+
+                angle_new = compute_angle_radial(x_old_bt, y_old_bt, x_new_bt, y_new_bt, inward_cone)
+
+                angle_vals = np.array([angle_old] + [compute_angle_radial(x_vals[k], y_vals[k], x_vals[k + 1], y_vals[k + 1], inward_cone) for k in range(0, num_segm)])
                 u_vals = compute_U_values(angle_vals)
                 distances_transformed = dist_transformed / num_segm * np.ones(num_segm)
-                distances_bt = np.array(
-                    [np.linalg.norm([x_vals[i] - x_vals[i - 1], y_vals[i] - y_vals[i - 1], z_vals[i] - z_vals[i - 1]])
-                     for i in range(1, num_segm + 1)])
+                distances_bt = np.array([np.linalg.norm([x_vals[i] - x_vals[i - 1], y_vals[i] - y_vals[i - 1], z_vals[i] - z_vals[i - 1]]) for i in range(1, num_segm + 1)])
 
                 # Replace new row with num_seg new rows for movements and possible command rows for the U value
                 row = insert_Z(row, z_vals[0])
-                row = replace_E(row, num_segm, 1)
+                row = replace_E(row, num_segm, 1, 1 / np.sqrt(2))
                 replacement_rows = ''
                 for j in range(0, num_segm):
                     single_row = re.sub(pattern_X, 'X' + str(round(x_vals[j + 1], 3)), row)
                     single_row = re.sub(pattern_Y, 'Y' + str(round(y_vals[j + 1], 3)), single_row)
                     single_row = re.sub(pattern_Z, 'Z' + str(round(z_vals[j + 1], 3)), single_row)
-                    single_row = replace_E(single_row, distances_transformed[j], distances_bt[j])
+                    single_row = replace_E(single_row, distances_transformed[j], distances_bt[j], 1)
                     if np.abs(u_vals[j + 1] - u_vals[j]) <= 30:
                         single_row = insert_U(single_row, u_vals[j + 1])
                     else:
@@ -324,7 +330,6 @@ def backtransform_data_radial(data, cone_type, maximal_length):
                 if update_y:
                     y_old = y_new
                     update_y = False
-
                 new_data.append(row)
 
     return new_data
@@ -332,10 +337,10 @@ def backtransform_data_radial(data, cone_type, maximal_length):
 
 def backtransform_data_tangential(data, cone_type, maximal_length):
     """
-    Backtransform GCode, which is given in a list, each element describing a row. Rows which describe a movement
+   Backtransform GCode, which is given in a list, each element describing a row. Rows which describe a movement
     are detected, x-, y-, z-, e- and U-values are replaced accordingly to the transformation. If a original segment
     is too long, it gets divided into sub-segments before the backtransformation. The U-values are computed
-    using the function compute_angle_tangential.
+    using the funciton compute_angle_tangential.
     :param data: list
         List of strings, describing each line of the GCode, which is to be backtransformed
     :param cone_type: string
@@ -357,6 +362,8 @@ def backtransform_data_tangential(data, cone_type, maximal_length):
     x_new, y_new = 0, 0
     z_layer = 0
     angle_old = 0
+    z_max = 0
+
     update_x, update_y = False, False
     if cone_type == 'outward':
         c = -1
@@ -411,6 +418,11 @@ def backtransform_data_tangential(data, cone_type, maximal_length):
                     z_vals = np.linspace(z_start, z_end, num_segm + 1)
                 else:
                     z_vals = np.array([z_layer + c * np.sqrt(x ** 2 + y ** 2) for x, y in zip(x_vals, y_vals)])
+                    if e_match and (np.max(z_vals) > z_max or z_max == 0):
+                        z_max = np.max(z_vals) # save hightes point with material extruded
+                    if e_match is None and np.max(z_vals) > z_max:
+                        np.minimum(z_vals, (z_max + 1), z_vals)	# cut away all travel moves, that are higher than max height extruded + 1 mm safety
+                        # das hier könnte noch verschönert werden, in dem dann alle abgeschnittenen Werte mit einer einer geraden Linie ersetzt werden
                 angle_vals = np.array([angle_old] + [angle_new for k in range(0, num_segm)])
                 u_vals = compute_U_values(angle_vals)
                 distances_transformed = dist_transformed / num_segm * np.ones(num_segm)
@@ -420,19 +432,20 @@ def backtransform_data_tangential(data, cone_type, maximal_length):
 
                 # Replace new row with num_seg new rows for movements and possible command rows for the U value
                 row = insert_Z(row, z_vals[0])
-                row = replace_E(row, num_segm, 1)
+                row = replace_E(row, num_segm, 1, 1 / np.sqrt(2))
                 replacement_rows = ''
                 for j in range(0, num_segm):
                     single_row = re.sub(pattern_X, 'X' + str(round(x_vals[j + 1], 3)), row)
                     single_row = re.sub(pattern_Y, 'Y' + str(round(y_vals[j + 1], 3)), single_row)
                     single_row = re.sub(pattern_Z, 'Z' + str(round(z_vals[j + 1], 3)), single_row)
-                    single_row = replace_E(single_row, distances_transformed[j], distances_bt[j])
+                    single_row = replace_E(single_row, distances_transformed[j], distances_bt[j],1)
                     if np.abs(u_vals[j + 1] - u_vals[j]) <= 30:
                         single_row = insert_U(single_row, u_vals[j + 1])
                     else:
                         single_row = single_row + 'G1 E-0.800 \n' + 'G1 U' + str(u_vals[j + 1]) + ' \n' + 'G1 E0.800 \n'
                     replacement_rows = replacement_rows + single_row
                 if np.amax(np.absolute(u_vals)) > 3600:
+                    print(np.amax(np.absolute(u_vals)))
                     angle_reset = np.round(angle_vals[-1] * 360 / (2 * np.pi), 2)
                     replacement_rows = replacement_rows + 'G92 U' + str(angle_reset) + '\n'
                     angle_old = angle_new
@@ -541,6 +554,11 @@ def backtransform_data_mixed(data, cone_type, maximal_length):
                     z_vals = np.linspace(z_start, z_end, num_segm + 1)
                 else:
                     z_vals = np.array([z_layer + c * np.sqrt(x ** 2 + y ** 2) for x, y in zip(x_vals, y_vals)])
+                    if e_match and (np.max(z_vals) > z_max or z_max == 0):
+                        z_max = np.max(z_vals) # save hightes point with material extruded
+                    if e_match is None and np.max(z_vals) > z_max:
+                        np.minimum(z_vals, (z_max + 1), z_vals)	# cut away all travel moves, that are higher than max height extruded + 1 mm safety
+                        # das hier könnte noch verschönert werden, in dem dann eine alle abgeschnittenen Werte mit einer einer geraden Linie ersetzt werden
                 if visible_print is True and e_match is not None:
                     angle_vals = np.array([angle_old] + [angle_new for k in range(0, num_segm)])
                 else:
@@ -588,7 +606,7 @@ def backtransform_data_mixed(data, cone_type, maximal_length):
     return new_data
 
 
-def translate_data(data, translate_x, translate_y, z_desired):
+def translate_data(data, translate_x, translate_y, z_desired, e_parallel, e_perpendicular):
     """
     Translate the GCode in x- and y-direction. Only the lines, which describe a movement will be translated.
     Additionally, if z_translation is True, the z-values will be translated such that the minimal z-value is z_desired.
@@ -602,6 +620,10 @@ def translate_data(data, translate_x, translate_y, z_desired):
         Float, which describes the translation in y-direction
     :param z_desired: float
         Desired minimal z-value
+    :param e_parallel: float
+        Error parallel to nozzle
+    :param e_perpendicular: float
+        Error perpendicular to nozzle
     :return: list
         List of strings, which contains the translated GCode
     """
@@ -610,8 +632,10 @@ def translate_data(data, translate_x, translate_y, z_desired):
     pattern_Y = r'Y[-0-9]+[.]?[0-9]*'
     pattern_Z = r'Z[-0-9]+[.]?[0-9]*'
     pattern_E = r'E[-0-9]+[.]?[0-9]*'
+    pattern_U = r'U[-0-9]+[.]?[0-9]*'
     pattern_G = r'\AG[01] '
     z_initialized = False
+    u_val = 0.0
 
     for row in data:
         g_match = re.search(pattern_G, row)
@@ -632,16 +656,20 @@ def translate_data(data, translate_x, translate_y, z_desired):
         y_match = re.search(pattern_Y, row)
         z_match = re.search(pattern_Z, row)
         g_match = re.search(pattern_G, row)
+        u_match = re.search(pattern_U, row)
 
+	if u_match is not None:
+            u_val = np.radians(float(u_match.group(0).replace('U', '')))
+            
         if g_match is None:
             new_data.append(row)
 
         else:
             if x_match is not None:
-                x_val = round(float(x_match.group(0).replace('X', '')) + translate_x, 3)
+		x_val = round(float(x_match.group(0).replace('X', '')) + translate_x - (e_parallel * np.cos(u_val)) + (e_perpendicular * np.sin(u_val)), 3)	# added correction for misalignment of nozzle
                 row = re.sub(pattern_X, 'X' + str(x_val), row)
             if y_match is not None:
-                y_val = round(float(y_match.group(0).replace('Y', '')) + translate_y, 3)
+		y_val = round(float(y_match.group(0).replace('Y', '')) + translate_y - (e_parallel * np.sin(u_val)) - (e_perpendicular * np.cos(u_val)), 3)	# added correction for misalignment of nozzle
                 row = re.sub(pattern_Y, 'Y' + str(y_val), row)
             if z_match is not None:
                 z_val = max(round(float(z_match.group(0).replace('Z', '')) + z_translate, 3), z_desired)
@@ -705,7 +733,6 @@ transformation_type = 'inward'
 angle_type = 'radial'
 
 start = time.time()
-backtransform_file(path=file_path, cone_type=transformation_type, maximal_length=5, angle_comp=angle_type, x_shift=0,
-                   y_shift=0, z_desired=0.3)
+backtransform_file(path=file_path, cone_type='outward', maximal_length=0.5, angle_comp='tangential', x_shift=100, y_shift=100, z_desired=0.1, e_parallel=0.25, e_perpendicular=0.65)	# e_parallel (error in x) and e_perpentdicular (error in y) are the errors of the nozzle to the rotational axis 
 end = time.time()
-print('GCode generated, time needed:', end - start)
+print('GCode generated, time used:', end - start)
