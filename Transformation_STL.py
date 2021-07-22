@@ -109,10 +109,10 @@ def transformation_STL_file(path, output_dir, cone_type, nb_iterations):
 # -------------------------------------------------------------------------------
 
 # STL transformation function parameters
-file_path = '/home/maurus/ownCloud/Private/VT_3DDrucker/Code_old/STL_Modelle/Wuerfel_high_low.stl'
-dir_transformed = '/home/maurus/ownCloud/Private/VT_3DDrucker/Code_old/STL_Transformed/'
-transformation_type = 'inward'
-nb_iterations = 4
+file_path = '/path/to/stl/file.stl'
+dir_transformed = '/path/to/save/transformation/'
+transformation_type = 'inward'  # inward or outward
+nb_iterations = 4   # number iterations for triangulation refinement
 
 # STL transformation function call
 transformation_STL_file(path=file_path,

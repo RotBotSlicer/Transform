@@ -123,51 +123,6 @@ def compute_angle_tangential(x_old, y_old, x_new, y_new, inward_cone):
     return angle
 
 
-def compute_angle_mixed(x_old, y_old, x_new, y_new, inward_cone, visible_print):
-    """
-    Compute the angle of the printing head, when moving from an old point [x_old, y_old] to a new point [x_new, y_new].
-    (Note: the z-value is not considered for the orientation of the printing head.) When printing an inner layer, the
-    angle is given by the direction of the new point by the arctan2 value according to the coordinates. When printing
-    an outer layer, the angle is computed using the tangential part of the movement.
-    :param x_old: float
-        x-coordinate of the old point
-    :param y_old: float
-        y-coordinate of the old point
-    :param x_new: float
-        x-coordinate of the new point
-    :param y_new: float
-        y-coordinate of the new point
-    :param inward_cone: bool
-        Boolean variable, which depends on the kind of transformation. If True, an additional angle of pi is added to
-        the angle.
-    :param visible_print: bool
-        Bool, which defines, if the angle has to be computed for a outer layer
-    :return: float
-        Angle, which describes orientation of printing head. Its value lies in [-pi, pi].
-    """
-    if visible_print is False:
-        angle = np.arctan2(y_new, x_new)
-    else:
-        direction_normal = np.array([-(y_new - y_old), x_new - x_old])
-        len_normal = np.linalg.norm(direction_normal)
-        direction_point = np.array([x_new, y_new])
-        len_point = np.linalg.norm(direction_point)
-        if len_normal * len_point == 0:
-            angle = np.arctan2(y_new, x_new)
-        else:
-            inner_prod = np.dot(direction_normal / len_normal, direction_point / len_point)
-            if np.isclose(inner_prod, 0, atol=0.01):
-                angle = np.arctan2(direction_normal[1], direction_normal[0])
-            else:
-                printhead_direction = inner_prod * len_point / len_normal * direction_normal
-                angle = np.arctan2(printhead_direction[1], printhead_direction[0])
-
-    if inward_cone:
-        angle = angle + np.pi
-
-    return angle
-
-
 def compute_U_values(angle_array):
     """
     Compute the U-values, which will be inserted, according to given angle values. The U-values are computed such that
@@ -471,148 +426,6 @@ def backtransform_data_tangential(data, cone_type, maximal_length):
     return new_data
 
 
-def backtransform_data_mixed(data, cone_type, maximal_length):
-    """
-    Backtransform GCode, which is given in a list, each element describing a row. Rows which describe a movement
-    are detected, x-, y-, z-, e- and U-values are replaced accordingly to the transformation. If a original segment
-    is too long, it gets divided into sub-segments before the backtransformation. The u-values are computed using
-    the function compute_angle_mixed, i.e. the computation depends, if a infill or a visible layer is printed.
-    :param data: list
-        List of strings, describing each line of the GCode, which is to be backtransformed
-    :param cone_type: string
-        String, either 'outward' or 'inward', defines which transformation should be used
-    :param maximal_length: float
-        Maximal length of a segment in the original GCode; every longer segment is divided, such that the resulting
-        segments are shorter than maximal_length
-    :return: list
-        List of strings, which describe the new GCode.
-    """
-    new_data = []
-    pattern_X = r'X[-0-9]+[.]?[0-9]*'
-    pattern_Y = r'Y[-0-9]+[.]?[0-9]*'
-    pattern_Z = r'Z[-0-9]+[.]?[0-9]*'
-    pattern_E = r'E[-0-9]+[.]?[0-9]*'
-    pattern_G = r'\AG[01] '
-    pattern_outer = r'; feature outer perimeter'
-    pattern_inner = r'; feature inner perimeter'
-    pattern_comment = r'; feature'
-
-    x_old, y_old = 0, 0
-    x_new, y_new = 0, 0
-    z_layer = 0
-    angle_old = 0
-    update_x, update_y = False, False
-    visible_print = False
-    if cone_type == 'outward':
-        c = -1
-        inward_cone = False
-    elif cone_type == 'inward':
-        c = 1
-        inward_cone = True
-    else:
-        raise ValueError('{} is not a admissible type for the transformation'.format(cone_type))
-
-    for row in data:
-        outer_match = re.search(pattern_outer, row)
-        inner_match = re.search(pattern_inner, row)
-        comment_match = re.search(pattern_comment, row)
-        if outer_match is not None or inner_match is not None:
-            visible_print = True
-        if visible_print and comment_match is not None and outer_match is None and inner_match is None:
-            visible_print = False
-
-        g_match = re.search(pattern_G, row)
-        if g_match is None:
-            new_data.append(row)
-
-        else:
-            x_match = re.search(pattern_X, row)
-            y_match = re.search(pattern_Y, row)
-            z_match = re.search(pattern_Z, row)
-
-            if x_match is None and y_match is None and z_match is None:
-                new_data.append(row)
-
-            else:
-                if z_match is not None:
-                    z_layer = float(z_match.group(0).replace('Z', ''))
-                if x_match is not None:
-                    x_new = float(x_match.group(0).replace('X', ''))
-                    update_x = True
-                if y_match is not None:
-                    y_new = float(y_match.group(0).replace('Y', ''))
-                    update_y = True
-
-                # Compute new values according to new row
-                e_match = re.search(pattern_E, row)
-                x_old_bt, y_old_bt = x_old / np.sqrt(2), y_old / np.sqrt(2)
-                x_new_bt, y_new_bt = x_new / np.sqrt(2), y_new / np.sqrt(2)
-                dist_transformed = np.linalg.norm([x_new - x_old, y_new - y_old])
-                angle_new = compute_angle_mixed(x_old_bt, y_old_bt, x_new_bt, y_new_bt, inward_cone, visible_print)
-
-                # Compute new values for backtransformation of row
-                num_segm = int(dist_transformed // maximal_length + 1)
-                x_vals = np.linspace(x_old_bt, x_new_bt, num_segm + 1)
-                y_vals = np.linspace(y_old_bt, y_new_bt, num_segm + 1)
-                if inward_cone and e_match is None and (update_x or update_y):
-                    z_start = z_layer + c * np.sqrt(x_old_bt ** 2 + y_old_bt ** 2)
-                    z_end = z_layer + c * np.sqrt(x_new_bt ** 2 + y_new_bt ** 2)
-                    z_vals = np.linspace(z_start, z_end, num_segm + 1)
-                else:
-                    z_vals = np.array([z_layer + c * np.sqrt(x ** 2 + y ** 2) for x, y in zip(x_vals, y_vals)])
-                    if e_match and (np.max(z_vals) > z_max or z_max == 0):
-                        z_max = np.max(z_vals)  # save hightes point with material extruded
-                    if e_match is None and np.max(z_vals) > z_max:
-                        np.minimum(z_vals, (z_max + 1),
-                                   z_vals)  # cut away all travel moves, that are higher than max height extruded + 1 mm safety
-                        # das hier könnte noch verschönert werden, in dem dann eine alle abgeschnittenen Werte mit einer einer geraden Linie ersetzt werden
-                if visible_print is True and e_match is not None:
-                    angle_vals = np.array([angle_old] + [angle_new for k in range(0, num_segm)])
-                else:
-                    angle_vals = np.array([angle_old] + [
-                        compute_angle_mixed(x_vals[k], y_vals[k], x_vals[k + 1], y_vals[k + 1], inward_cone,
-                                            visible_print) for k in
-                        range(0, num_segm)])
-                u_vals = compute_U_values(angle_vals)
-                distances_transformed = dist_transformed / num_segm * np.ones(num_segm)
-                distances_bt = np.array(
-                    [np.linalg.norm([x_vals[i] - x_vals[i - 1], y_vals[i] - y_vals[i - 1], z_vals[i] - z_vals[i - 1]])
-                     for i in range(1, num_segm + 1)])
-
-                # Replace new row with num_seg new rows for movements and possible command rows for the U value
-                row = insert_Z(row, z_vals[0])
-                row = replace_E(row, num_segm, 1)
-                replacement_rows = ''
-                for j in range(0, num_segm):
-                    single_row = re.sub(pattern_X, 'X' + str(round(x_vals[j + 1], 3)), row)
-                    single_row = re.sub(pattern_Y, 'Y' + str(round(y_vals[j + 1], 3)), single_row)
-                    single_row = re.sub(pattern_Z, 'Z' + str(round(z_vals[j + 1], 3)), single_row)
-                    single_row = replace_E(single_row, distances_transformed[j], distances_bt[j])
-                    if np.abs(u_vals[j + 1] - u_vals[j]) <= 30:
-                        single_row = insert_U(single_row, u_vals[j + 1])
-                    else:
-                        single_row = single_row + 'G1 E-0.800 \n' + 'G1 U' + str(u_vals[j + 1]) + ' \n' + 'G1 E0.800 \n'
-                    replacement_rows = replacement_rows + single_row
-                if np.amax(np.absolute(u_vals)) > 3600:
-                    angle_reset = np.round(angle_vals[-1] * 360 / (2 * np.pi), 2)
-                    replacement_rows = replacement_rows + 'G92 U' + str(angle_reset) + '\n'
-                    angle_old = angle_new
-                else:
-                    angle_old = u_vals[-1] * 2 * np.pi / 360
-
-                row = replacement_rows
-
-                if update_x:
-                    x_old = x_new
-                    update_x = False
-                if update_y:
-                    y_old = y_new
-                    update_y = False
-                new_data.append(row)
-
-    return new_data
-
-
 def translate_data(data, translate_x, translate_y, z_desired, e_parallel, e_perpendicular):
     """
     Translate the GCode in x- and y-direction. Only the lines, which describe a movement will be translated.
@@ -702,7 +515,7 @@ def backtransform_file(path, output_dir, cone_type, maximal_length, angle_comp, 
     :param maximal_length: float
         Maximal length of a segment in the original GCode
     :param angle_comp: string
-        String, which describes the way, the angle is computed; one of 'radial', 'tangential', 'mixed'
+        String, which describes the way, the angle is computed; one of 'radial' or 'tangential'
     :param x_shift: float
         Float, which describes the translation in x-direction
     :param y_shift: float
@@ -717,7 +530,7 @@ def backtransform_file(path, output_dir, cone_type, maximal_length, angle_comp, 
     elif angle_comp == 'tangential':
         backtransform_data = backtransform_data_tangential
     else:
-        backtransform_data = backtransform_data_mixed
+        raise ValueError('{} is not a admissible type for the angle computation'.format(angle_comp))
 
     with open(path, 'r') as f_gcode:
         data = f_gcode.readlines()
@@ -745,8 +558,8 @@ def backtransform_file(path, output_dir, cone_type, maximal_length, angle_comp, 
 # -------------------------------------------------------------------------------
 
 # G-Code backtransformation function parameters
-file_path = '/home/maurus/ownCloud/Private/VT_3DDrucker/Code_old/G_Codes/Wuerfel_klein_transformiert.gcode'
-dir_backtransformed = '/home/maurus/ownCloud/Private/VT_3DDrucker/Code_old/G_Codes_Backtransformed/'
+file_path = '/path/to/gcode/file.gcode'
+dir_backtransformed = '/path/to/save/backtransformation/'
 transformation_type = 'inward'  # inward or outward
 angle_type = 'radial'  # radial or tangential
 max_length = 5  # maximal length of a segment in mm
