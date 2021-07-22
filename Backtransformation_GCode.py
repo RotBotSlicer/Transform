@@ -753,7 +753,7 @@ max_length = 5  # maximal length of a segment in mm
 x_shift = 0  # shift of code in x-direction
 y_shift = 0  # shift of code in x-direction
 z_desired = 0.1  # desired height in z-direction
-e_parallel = 0.25   # error in parallel direction
+e_parallel = 0.24   # error in parallel direction
 e_perpenticular = 0.65  # error in perpendicular direction
 
 # G-Code backtransformation function call

@@ -112,7 +112,7 @@ def transformation_STL_file(path, output_dir, cone_type, nb_iterations):
 file_path = '/home/maurus/ownCloud/Private/VT_3DDrucker/Code_old/STL_Modelle/Wuerfel_high_low.stl'
 dir_transformed = '/home/maurus/ownCloud/Private/VT_3DDrucker/Code_old/STL_Transformed/'
 transformation_type = 'inward'
-nb_iterations = 4
+nb_iterations = 2
 
 # STL transformation function call
 transformation_STL_file(path=file_path,
