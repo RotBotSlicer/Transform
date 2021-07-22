@@ -745,8 +745,8 @@ def backtransform_file(path, output_dir, cone_type, maximal_length, angle_comp, 
 # -------------------------------------------------------------------------------
 
 # G-Code backtransformation function parameters
-file_path = '/home/maurus/ownCloud/Private/VT_3DDrucker/Code_old/G_Codes/Wuerfel_klein_transformiert.gcode'
-dir_backtransformed = '/home/maurus/ownCloud/Private/VT_3DDrucker/Code_old/G_Codes_Backtransformed/'
+file_path = '/path/to/gcode/file.gcode'
+dir_backtransformed = '/path/to/save/backtransformation/'
 transformation_type = 'inward'  # inward or outward
 angle_type = 'radial'  # radial or tangential
 max_length = 5  # maximal length of a segment in mm
