@@ -701,6 +701,7 @@ def backtransform_file(path, output_dir, cone_type, maximal_length, angle_comp, 
         Desired minimal z-value
     :return: None
     """
+    start = time.time()
     if angle_comp == 'radial':
         backtransform_data = backtransform_data_radial
     elif angle_comp == 'tangential':
