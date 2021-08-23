@@ -1,7 +1,7 @@
 # 3D_Printer
 
 ### Introduction
-This is a algorithm for a 3D printer with new printer geometry. With this new printer geometry, overhang with 90° and more can be printed without fill-in material. The two scripts can be used to generate the G-Code for the RotBot printer geometry from a STL-file. The algorithm is based on a geometric transformation of the body. The ideas are summarized in REFERENZ. 
+This is an algorithm for a 3D printer with new printer geometry. With this new printer geometry, overhang with 90° and more can be printed without fill-in material. The two scripts can be used to generate the G-Code for the RotBot printer geometry from a STL-file. The algorithm is based on a geometric transformation of the body. The ideas are summarized in REFERENZ. 
 
 The script Transformation_STL.py takes a path to a STL-file as input, generates a mesh of a transformed object and saves this mesh in a STL file.
 
@@ -33,5 +33,16 @@ The back-transformation of the G-Code has the following parameters:
 The algorithm is open source and licensed under the Apache License, Version 2.0 ([http://www.apache.org/licenses/LICENSE-2.0]()).
 
 ### Citation
-If you use the algorithm, please consider citing the following paper ():
-CITATION
+If you use the algorithm, please consider citing the following paper:
+```
+@article{wuethrich2021slicing,
+  title        = {Slicing Strategy for a novel 4-Axis 3D Printing Process to Print Overhangs without Support Material},
+  author       = {Michael Wüthrich, Maurus Gubser, Wilfried J. Elspass, Christian Jaeger},
+  journal      = {Applied Sciences},
+  volume       = {},
+  number       = {},
+  pages        = {094105},
+  year         = {2021},
+  publisher    = {MDPI}
+}
+```
