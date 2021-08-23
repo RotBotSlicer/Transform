@@ -30,7 +30,7 @@ The back-transformation of the G-Code has the following parameters:
 * e_perpenticular: extrusion error to correct in perpendicular direction
 
 ### License
-The algorithm is open source and licensed under the Apache License, Version 2.0 ([http://www.apache.org/licenses/LICENSE-2.0]()).
+The algorithm is open source and licensed under the GNU General Public License Version 3.0 ([https://www.gnu.org/licenses/gpl-3.0.en.html]()).
 
 ### Citation
 If you use the algorithm, please consider citing the following paper:
