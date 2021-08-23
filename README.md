@@ -1,6 +1,37 @@
 # 3D_Printer
-Algorithm for 3D printer with new printer geometry. The two scripts can be used to generate the G-Code for the RotBot printer geometry from a STL-file.
+
+### Introduction
+This is a algorithm for a 3D printer with new printer geometry. With this new printer geometry, overhang with 90° and more can be printed without fill-in material. The two scripts can be used to generate the G-Code for the RotBot printer geometry from a STL-file. The algorithm is based on a geometric transformation of the body. The ideas are summarized in REFERENZ. 
 
 The script Transformation_STL.py takes a path to a STL-file as input, generates a mesh of a transformed object and saves this mesh in a STL file.
 
 The script Backtransformation_GCode.py takes a path to a G-Code as input, generates G-Code for the backtransformed object and saves the G-Code in a text file.
+
+To generate G-Code from the STL file, different slicer software can be used, e.g. [https://ultimaker.com/software/ultimaker-cura]() or [https://www.simplify3d.com/]()
+
+### Transformation of the STL file
+The transformation of the STL file has the following parameters:
+* file_path: path to the STL file of the body
+* dir_transformed: path, where to save the STL file of the transformed body 
+* transformation_type: 'inward' or 'outward' transformation
+* nb_iterations: number iterations for the triangulation refinement
+
+### Back-Transformation of the G-Code
+The back-transformation of the G-Code has the following parameters:
+* file_path: path to the G-Code
+* dir_backtransformed: path, where the transformed G-Code should be saved
+* transformation_type: 'inward' or 'outward' transformation
+* angle_type: 'radial' or 'tangential' orientation of the print head
+* max_length: maximal length of a segment in mm
+* x_shift: shift of (final) G-code in x-direction
+* y_shift: shift of (final) G-code in y-direction
+* z_desired: desired height in z-direction
+* e_parallel: extrusion error to correct in parallel direction
+* e_perpenticular: extrusion error to correct in perpendicular direction
+
+### License
+The algorithm is open source and licensed under the Apache License, Version 2.0 ([http://www.apache.org/licenses/LICENSE-2.0]()).
+
+### Citation
+If you use the algorithm, please consider citing the following paper ():
+CITATION

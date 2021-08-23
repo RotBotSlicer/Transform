@@ -36,7 +36,8 @@ def insert_Z(row, z_value):
 def replace_E(row, dist_old, dist_new, corr_value):
     """
     Replace the amount of extruded filament in a row. The new amount is proportional to the old amount, where
-    the factor is obtained by the ratio of new distance to old distance. (Due to the transformation, the amount has to be divided by sqrt(2). replace_E is accessed 2 times.)
+    the factor is obtained by the ratio of new distance to old distance. (Due to the transformation, the amount has to
+    be divided by sqrt(2). replace_E is accessed 2 times.)
     :param row: string
         String containing the row, of which the extruder value should be replaced
     :param dist_old: float
@@ -44,7 +45,8 @@ def replace_E(row, dist_old, dist_new, corr_value):
     :param dist_new: float
         Length of the distance after backtransformation
     :param corr_value: float
-        additional correction value due to transformation	# added to have additional possiblity to correct amount of extruded material
+        additional correction value due to transformation	# added to have additional possiblity to correct amount of
+        extruded material
     :return: string
         New string, containing the row with replaced extruder value
     """
@@ -172,7 +174,8 @@ def backtransform_data_radial(data, cone_type, maximal_length):
     Backtransform G-Code, which is given in a list, each element describing a row. Rows which describe a movement
     are detected, x-, y-, z-, E- and U-values are replaced accordingly to the transformation. If a original segment
     is too long, it gets divided into sub-segments before the backtransformation. The U-values are computed
-    using the function compute_angle_radial. (Added, that while travel moves, nozzle only rises 1 mm above highest printed point and not along cone.)
+    using the function compute_angle_radial. (Added, that while travel moves, nozzle only rises 1 mm above highest
+    printed point and not along cone.)
     :param data: list
         List of strings, describing each line of the GCode, which is to be backtransformed
     :param cone_type: string
@@ -441,9 +444,9 @@ def translate_data(data, translate_x, translate_y, z_desired, e_parallel, e_perp
     :param z_desired: float
         Desired minimal z-value
     :param e_parallel: float
-        Error parallel to nozzle
+        Correction of extrusion error parallel to nozzle
     :param e_perpendicular: float
-        Error perpendicular to nozzle
+        Correction of extrusion error perpendicular to nozzle
     :return: list
         List of strings, which contains the translated GCode
     """
@@ -522,6 +525,10 @@ def backtransform_file(path, output_dir, cone_type, maximal_length, angle_comp, 
         Float, which describes the translation in y-direction
     :param z_desired: float
         Desired minimal z-value
+    :param e_perpendicular: float
+        Correction of extrusion error parallel to nozzle
+    :param e_parallel: float
+        Correction of extrusion error perpendicular to nozzle
     :return: None
     """
     start = time.time()
@@ -564,7 +571,7 @@ transformation_type = 'inward'  # inward or outward
 angle_type = 'radial'  # radial or tangential
 max_length = 5  # maximal length of a segment in mm
 x_shift = 0  # shift of code in x-direction
-y_shift = 0  # shift of code in x-direction
+y_shift = 0  # shift of code in y-direction
 z_desired = 0.1  # desired height in z-direction
 e_parallel = 0.25   # error in parallel direction
 e_perpenticular = 0.65  # error in perpendicular direction
