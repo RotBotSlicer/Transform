@@ -41,7 +41,7 @@ If you use the algorithm, please consider citing the following paper:
   journal      = {Applied Sciences},
   volume       = {},
   number       = {},
-  pages        = {094105},
+  pages        = {},
   year         = {2021},
   publisher    = {MDPI}
 }
