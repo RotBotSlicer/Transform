@@ -574,7 +574,7 @@ x_shift = 0  # shift of code in x-direction
 y_shift = 0  # shift of code in y-direction
 z_desired = 0.1  # desired height in z-direction
 e_parallel = 0.25   # error in parallel direction
-e_perpenticular = 0.65  # error in perpendicular direction
+e_perpendicular = 0.65  # error in perpendicular direction
 
 # G-Code backtransformation function call
 backtransform_file(path=file_path,
@@ -586,5 +586,5 @@ backtransform_file(path=file_path,
                    y_shift=y_shift,
                    z_desired=z_desired,
                    e_parallel=e_parallel,
-                   e_perpendicular=e_perpenticular
+                   e_perpendicular=e_perpendicular
                    )
