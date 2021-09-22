@@ -27,7 +27,7 @@ The back-transformation of the G-Code has the following parameters:
 * y_shift: shift of (final) G-code in y-direction
 * z_desired: desired height in z-direction
 * e_parallel: extrusion error to correct in parallel direction
-* e_perpenticular: extrusion error to correct in perpendicular direction
+* e_perpendicular: extrusion error to correct in perpendicular direction
 
 ### License
 The algorithm is open source and licensed under the GNU General Public License Version 3.0 ([https://www.gnu.org/licenses/gpl-3.0.en.html]()).
