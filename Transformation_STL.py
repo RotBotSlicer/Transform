@@ -112,11 +112,11 @@ def transformation_STL_file(path, output_dir, cone_type, nb_iterations):
 file_path = '/path/to/stl/file.stl'
 dir_transformed = '/path/to/save/transformation/'
 transformation_type = 'inward'  # inward or outward
-nb_iterations = 4   # number iterations for triangulation refinement
+number_iterations = 4   # number iterations for triangulation refinement
 
 # STL transformation function call
 transformation_STL_file(path=file_path,
                         output_dir=dir_transformed,
                         cone_type=transformation_type,
-                        nb_iterations=nb_iterations,
+                        nb_iterations=number_iterations,
                         )

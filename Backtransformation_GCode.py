@@ -199,7 +199,6 @@ def backtransform_data_radial(data, cone_type, maximal_length):
     angle_old = 0
     z_max = 0
     update_x, update_y = False, False
-    visible_print = False
     if cone_type == 'outward':
         c = -1
         inward_cone = False
@@ -570,11 +569,11 @@ dir_backtransformed = '/path/to/save/backtransformation/'
 transformation_type = 'inward'  # inward or outward
 angle_type = 'radial'  # radial or tangential
 max_length = 5  # maximal length of a segment in mm
-x_shift = 0  # shift of code in x-direction
-y_shift = 0  # shift of code in y-direction
-z_desired = 0.1  # desired height in z-direction
-e_parallel = 0.25   # error in parallel direction
-e_perpendicular = 0.65  # error in perpendicular direction
+delta_x = 0  # shift of code in x-direction
+delta_y = 0  # shift of code in y-direction
+z_height = 0.1  # desired height in z-direction
+err_parallel = 0.25   # error in parallel direction
+err_perpendicular = 0.65  # error in perpendicular direction
 
 # G-Code backtransformation function call
 backtransform_file(path=file_path,
@@ -582,9 +581,9 @@ backtransform_file(path=file_path,
                    cone_type=transformation_type,
                    maximal_length=max_length,
                    angle_comp=angle_type,
-                   x_shift=x_shift,
-                   y_shift=y_shift,
-                   z_desired=z_desired,
-                   e_parallel=e_parallel,
-                   e_perpendicular=e_perpendicular
+                   x_shift=delta_x,
+                   y_shift=delta_y,
+                   z_desired=z_height,
+                   e_parallel=err_parallel,
+                   e_perpendicular=err_perpendicular
                    )
