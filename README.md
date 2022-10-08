@@ -29,6 +29,9 @@ The back-transformation of the G-Code has the following parameters:
 * e_parallel: extrusion error to correct in parallel direction
 * e_perpendicular: extrusion error to correct in perpendicular direction
 
+### Scripts for variable angle
+With this scripts, the cone angle can be changed. So it does not only work for 45° angle as used for RotBot, but can also be used with much smaller angles (e.g. 15°) to do a conical slicing for any printer. So overhangs can be printed on any printer.
+
 ### License
 The algorithm is open source and licensed under the GNU General Public License Version 3.0 ([https://www.gnu.org/licenses/gpl-3.0.en.html]()).
 
