@@ -1,8 +1,9 @@
 import re
 import numpy as np
+import sys
 import os
 import time
-
+import argparse
 
 def insert_Z(row, z_value):
     """
@@ -550,6 +551,7 @@ def backtransform_file(path, output_dir, cone_type, maximal_length, angle_comp, 
         os.mkdir(output_dir)
     file_name = path[path.rfind('/'):]
     file_name = file_name.replace('.gcode', '_bt_' + cone_type + '_' + angle_comp + '.gcode')
+    print("output filename: {}".format(file_name))
     output_path = output_dir + file_name
     with open(output_path, 'w+') as f_gcode_bt:
         f_gcode_bt.write(data_bt_string)
@@ -562,28 +564,37 @@ def backtransform_file(path, output_dir, cone_type, maximal_length, angle_comp, 
 # -------------------------------------------------------------------------------
 # Apply the functions for a G-Code file
 # -------------------------------------------------------------------------------
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="")
+    parser.add_argument('-i', '--infile', dest='file_path', type=str, help='GCODE-file to apply the transformation to.', required=True)
+    parser.add_argument('-o', '--outpath', dest='dir_backtransformed', type=str, help='Folder to store the output to.', required=True)
+    parser.add_argument('-t', '--trans-type', dest='transformation_type', type=str, default='inward', help='The transformation type: inward or outward.')
+    parser.add_argument('-a', '--angle-type', dest='angle_type', type=str, default='radial', help='The angle type: radial or tangential.')
+    parser.add_argument('-m', '--max-length', dest='max_length', type=int, default=5, help='Maximal length of a segment in mm.')
+    parser.add_argument('-x', '--delta-x', dest='delta_x', type=int, default=0, help='Shift the code in x-direction.')
+    parser.add_argument('-y', '--delta-y', dest='delta_y', type=int, default=0, help='Shift the code in y-direction.')
+    parser.add_argument('-z', '--z-height', dest='z_height', type=float, default=0.1, help='Desired height in z-direction.')
+    parser.add_argument('-ep', '--err-parallel', dest='err_parallel', type=float, default=0.25, help='Error in parallel direction.')
+    parser.add_argument('-et', '--err-perpendicular', dest='err_perpendicular', type=float, default=0.65, help='Error in perpendicular direction.')
+    args = parser.parse_args()
 
-# G-Code backtransformation function parameters
-file_path = '/path/to/gcode/file.gcode'
-dir_backtransformed = '/path/to/save/backtransformation/'
-transformation_type = 'inward'  # inward or outward
-angle_type = 'radial'  # radial or tangential
-max_length = 5  # maximal length of a segment in mm
-delta_x = 0  # shift of code in x-direction
-delta_y = 0  # shift of code in y-direction
-z_height = 0.1  # desired height in z-direction
-err_parallel = 0.25   # error in parallel direction
-err_perpendicular = 0.65  # error in perpendicular direction
-
-# G-Code backtransformation function call
-backtransform_file(path=file_path,
-                   output_dir=dir_backtransformed,
-                   cone_type=transformation_type,
-                   maximal_length=max_length,
-                   angle_comp=angle_type,
-                   x_shift=delta_x,
-                   y_shift=delta_y,
-                   z_desired=z_height,
-                   e_parallel=err_parallel,
-                   e_perpendicular=err_perpendicular
+    try:
+        # G-Code backtransformation function call
+        backtransform_file(path=args.file_path,
+                   output_dir=args.dir_backtransformed,
+                   cone_type=args.transformation_type,
+                   maximal_length=args.max_length,
+                   angle_comp=args.angle_type,
+                   x_shift=args.delta_x,
+                   y_shift=args.delta_y,
+                   z_desired=args.z_height,
+                   e_parallel=args.err_parallel,
+                   e_perpendicular=args.err_perpendicular
                    )
+
+    except KeyboardInterrupt:
+        print("Interrupted.")
+        try:
+            sys.exit(0)
+        except SystemExit:
+            os._exit(0)

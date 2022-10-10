@@ -98,6 +98,7 @@ def transformation_STL_file(path, output_dir, cone_type, nb_iterations):
         os.mkdir(output_dir)
     file_name = path[path.rfind('/'):]
     file_name = file_name.replace('.stl', '_' + cone_type + '_transformed.stl')
+    print("output filename: {}".format(file_name))
     output_path = output_dir + file_name
     my_mesh_transformed.save(output_path)
     end = time.time()
@@ -125,7 +126,7 @@ if __name__ == '__main__':
                                 )
 
     except KeyboardInterrupt:
-        print("Done.")
+        print("Interrupted.")
         try:
             sys.exit(0)
         except SystemExit:
