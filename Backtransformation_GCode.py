@@ -301,7 +301,7 @@ def backtransform_data_radial(data, cone_type, maximal_length):
 
 def backtransform_data_tangential(data, cone_type, maximal_length):
     """
-   Backtransform GCode, which is given in a list, each element describing a row. Rows which describe a movement
+    Backtransform GCode, which is given in a list, each element describing a row. Rows which describe a movement
     are detected, x-, y-, z-, e- and U-values are replaced accordingly to the transformation. If a original segment
     is too long, it gets divided into sub-segments before the backtransformation. The U-values are computed
     using the function compute_angle_tangential.

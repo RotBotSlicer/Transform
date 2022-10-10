@@ -16,6 +16,12 @@ The transformation of the STL file has the following parameters:
 * transformation_type: 'inward' or 'outward' transformation
 * nb_iterations: number iterations for the triangulation refinement
 
+On the command line:
+```
+python Transformation_STL.py -i 3DBenchy.stl -o out -t inward -n 1
+```
+
+
 ### Back-Transformation of the G-Code
 The back-transformation of the G-Code has the following parameters:
 * file_path: path to the G-Code
@@ -28,6 +34,11 @@ The back-transformation of the G-Code has the following parameters:
 * z_desired: desired height in z-direction
 * e_parallel: extrusion error to correct in parallel direction
 * e_perpendicular: extrusion error to correct in perpendicular direction
+
+Type the following command to perform the backtransformation:
+```
+python Backtransformation_GCode.py -i 3DBenchy_mod.gcode -o out
+```
 
 ### Scripts for variable angle
 With this scripts, the cone angle can be changed. So it does not only work for 45° angle as used for RotBot, but can also be used with much smaller angles (e.g. 15°) to do a conical slicing for any printer. So overhangs can be printed on any printer.
