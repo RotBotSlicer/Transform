@@ -1,7 +1,9 @@
 import numpy as np
 from stl import mesh
 import time
-
+import sys
+import os
+import argparse
 
 def transformation_kegel(points, cone_angle_rad, cone_type):
     """
@@ -66,11 +68,13 @@ def refinement_triangulation(triangle_array, num_iterations):
     return refined_array
 
 
-def transformation_STL_file(path, cone_type, cone_angle_deg, nb_iterations):
+def transformation_STL_file(path, output_dir, cone_type, cone_angle_deg, nb_iterations):
     """
     Read a stl-file, refine the triangulation and transform it according to the cone-transformation
     :param path: string
         path to the stl file
+    :param output_dir: string
+        path of directory, where transformed STL-file will be saved
     :param cone_type: string
         String, either 'outward' or 'inward', defines which transformation should be used
     :param cone_angle: int
@@ -80,6 +84,7 @@ def transformation_STL_file(path, cone_type, cone_angle_deg, nb_iterations):
     :return: mesh object
         transformed triangulation as mesh object which can be stored as stl file
     """
+    start = time.time()
     cone_angle_rad = cone_angle_deg / 180 * np.pi
     my_mesh = mesh.Mesh.from_file(path)
     vectors = my_mesh.vectors
@@ -90,22 +95,45 @@ def transformation_STL_file(path, cone_type, cone_angle_deg, nb_iterations):
     my_mesh_transformed = np.zeros(vectors_transformed.shape[0], dtype=mesh.Mesh.dtype)
     my_mesh_transformed['vectors'] = vectors_transformed
     my_mesh_transformed = mesh.Mesh(my_mesh_transformed)
-    return my_mesh_transformed
+
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+    file_name = path
+    pos = path.rfind('/')
+    if pos > -1:
+        file_name = path[pos:]
+    file_name = file_name.replace('.stl', '_' + cone_type + '_transformed.stl')
+    output_path = output_dir + '/' + file_name
+    my_mesh_transformed.save(output_path)
+    end = time.time()
+    print('STL file generated in {:.1f}s, saved in {}'.format(end - start, output_path))
+    return None
 
 
 #-----------------------------------------------------------------------------------------
 # Anwenden der Funktionen auf ein STL File
 #-----------------------------------------------------------------------------------------
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="")
+    parser.add_argument('-i', '--infile', dest='file_path', type=str, help='STL-file to apply the transformation to.', required=True)
+    parser.add_argument('-o', '--outpath', dest='dir_transformed', type=str, help='Folder to store the output to.', required=True)
+    parser.add_argument('-t', '--trans-type', dest='transformation_type', type=str, default='inward', help='The transformation type: inward or outward.')
+    parser.add_argument('-n', '--number-iterations', dest='number_iterations', type=int, default=1, help='The numbers of itartions for triangulation refinement.')
+    parser.add_argument('-c', '--cone-angle', dest='cone_angle_deg', type=float, default=15, help='Cone angle in degree.')
+    args = parser.parse_args()
 
+    try:
+        # STL transformation function call
+        transformation_STL_file(path=args.file_path,
+                                output_dir=args.dir_transformed,
+                                cone_type=args.transformation_type, 
+                                cone_angle_deg=args.cone_angle_deg, 
+                                nb_iterations=args.number_iterations
+                                )
 
-dateiname = 'Unten_dunn'
-ordnername_originale = 'STL_Modelle/'
-ordnername_transformierte = 'Modelle_Transformiert_Kegel/'
-dateipfad = ordnername_originale + dateiname + '.stl'
-transformations_typ = 'outward'
-
-startzeit = time.time()
-transformed_STL = transformation_STL_file(path=dateipfad, cone_type=transformations_typ, cone_angle_deg=15, nb_iterations=1)
-transformed_STL.save(ordnername_transformierte + dateiname + '_' + transformations_typ + '_transformiert.stl')
-endzeit = time.time()
-print('Benoetigte Zeit:', endzeit - startzeit)
+    except KeyboardInterrupt:
+        print("Interrupted.")
+        try:
+            sys.exit(0)
+        except SystemExit:
+            os._exit(0)
