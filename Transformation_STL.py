@@ -1,8 +1,9 @@
 import numpy as np
 from stl import mesh
 import time
+import sys
 import os
-
+import argparse
 
 def refinement_one_triangle(triangle):
     """
@@ -95,8 +96,8 @@ def transformation_STL_file(path, output_dir, cone_type, nb_iterations):
 
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
-    file_name = file_path[file_path.rfind('/'):]
-    file_name = file_name.replace('.stl', '_' + transformation_type + '_transformed.stl')
+    file_name = path[path.rfind('/'):]
+    file_name = file_name.replace('.stl', '_' + cone_type + '_transformed.stl')
     output_path = output_dir + file_name
     my_mesh_transformed.save(output_path)
     end = time.time()
@@ -105,18 +106,27 @@ def transformation_STL_file(path, output_dir, cone_type, nb_iterations):
 
 
 # -------------------------------------------------------------------------------
-# Apply the functions for a STL file
+# Apply the functions to a STL file
 # -------------------------------------------------------------------------------
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="")
+    parser.add_argument('-i', '--infile', dest='file_path', type=str, help='STL-file to apply the transformation to.', required=True)
+    parser.add_argument('-o', '--outpath', dest='dir_transformed', type=str, help='Folder to store the output to.', required=True)
+    parser.add_argument('-t', '--trans-type', dest='transformation_type', type=str, default='inward', help='The transformation type: inward or outward.')
+    parser.add_argument('-n', '--number-iterations', dest='number_iterations', type=int, default=1, help='The numbers of itartions for triangulation refinement.')
+    args = parser.parse_args()
 
-# STL transformation function parameters
-file_path = '/path/to/stl/file.stl'
-dir_transformed = '/path/to/save/transformation/'
-transformation_type = 'inward'  # inward or outward
-number_iterations = 4   # number iterations for triangulation refinement
+    try:
+        # STL transformation function call
+        transformation_STL_file(path=args.file_path,
+                                output_dir=args.dir_transformed,
+                                cone_type=args.transformation_type,
+                                nb_iterations=args.number_iterations,
+                                )
 
-# STL transformation function call
-transformation_STL_file(path=file_path,
-                        output_dir=dir_transformed,
-                        cone_type=transformation_type,
-                        nb_iterations=number_iterations,
-                        )
+    except KeyboardInterrupt:
+        print("Done.")
+        try:
+            sys.exit(0)
+        except SystemExit:
+            os._exit(0)
