@@ -96,10 +96,12 @@ def transformation_STL_file(path, output_dir, cone_type, nb_iterations):
 
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
-    file_name = path[path.rfind('/'):]
+    file_name = path
+    pos = path.rfind('/')
+    if pos > -1:
+        file_name = path[pos:]
     file_name = file_name.replace('.stl', '_' + cone_type + '_transformed.stl')
-    print("output filename: {}".format(file_name))
-    output_path = output_dir + file_name
+    output_path = output_dir + '/' + file_name
     my_mesh_transformed.save(output_path)
     end = time.time()
     print('STL file generated in {:.1f}s, saved in {}'.format(end - start, output_path))

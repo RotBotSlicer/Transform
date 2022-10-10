@@ -549,10 +549,12 @@ def backtransform_file(path, output_dir, cone_type, maximal_length, angle_comp, 
 
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
-    file_name = path[path.rfind('/'):]
+    file_name = path
+    pos = path.rfind('/')
+    if pos > -1:
+        file_name = path[pos:]
     file_name = file_name.replace('.gcode', '_bt_' + cone_type + '_' + angle_comp + '.gcode')
-    print("output filename: {}".format(file_name))
-    output_path = output_dir + file_name
+    output_path = output_dir + '/' + file_name
     with open(output_path, 'w+') as f_gcode_bt:
         f_gcode_bt.write(data_bt_string)
 
