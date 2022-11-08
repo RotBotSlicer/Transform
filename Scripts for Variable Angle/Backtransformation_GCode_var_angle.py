@@ -2,6 +2,17 @@ import re
 import numpy as np
 import time
 
+# -----------------------------------------------------------------------------------------
+# Transformation Settings
+# -----------------------------------------------------------------------------------------
+FILE_NAME = 'Hornet_03_SS_0.25mm_PLA_MINI_5h1m.gcode'
+FOLDER_NAME = 'G_Codes/'
+CONE_ANGLE = 17
+CONE_TYPE = 'outward'
+FIRST_LAYER_HEIGHT = 0.15
+X_SHIFT = 110
+Y_SHIFT = 110
+
 
 def insert_Z(row, z_value):
     """
@@ -13,9 +24,9 @@ def insert_Z(row, z_value):
     :return: string
         New string, containing the row with replaced z-value
     """
-    pattern_X = r'X[-0-9]+[.]?[0-9]*'
-    pattern_Y = r'Y[-0-9]+[.]?[0-9]*'
-    pattern_Z = r'Z[-0-9]+[.]?[0-9]*'
+    pattern_X = r'X[-0-9]*[.]?[0-9]*'
+    pattern_Y = r'Y[-0-9]*[.]?[0-9]*'
+    pattern_Z = r'Z[-0-9]*[.]?[0-9]*'
     match_x = re.search(pattern_X, row)
     match_y = re.search(pattern_Y, row)
     match_z = re.search(pattern_Z, row)
@@ -48,7 +59,7 @@ def replace_E(row, dist_old, dist_new, corr_value):
     :return: string
         New string, containing the row with replaced extruder value
     """
-    pattern_E = r'E[-0-9]+[.]?[0-9]*'
+    pattern_E = r'E[-0-9]*[.]?[0-9]*'
     match_e = re.search(pattern_E, row)
     if match_e is None:
         return row
@@ -56,8 +67,8 @@ def replace_E(row, dist_old, dist_new, corr_value):
     if dist_old == 0:
         e_val_new = 0
     else:
-        e_val_new = round(e_val_old * dist_new * corr_value / dist_old , 6)
-    e_str_new = 'E' + str(e_val_new)
+        e_val_new = e_val_old * dist_new * corr_value / dist_old
+    e_str_new = 'E' + f'{e_val_new:.5f}'
     row_new = row[0:match_e.start(0)] + e_str_new + row[match_e.end(0):]
     return row_new
 
@@ -122,9 +133,9 @@ def insert_U(row, angle):
     :return: string
         New string, containing the row with replaced U-value
     """
-    pattern_Z = r'Z[-0-9]+[.]?[0-9]*'
+    pattern_Z = r'Z[-0-9]*[.]?[0-9]*'
     match_z = re.search(pattern_Z, row)
-    pattern_U = r'U[-0-9]+[.]?[0-9]*'
+    pattern_U = r'U[-0-9]*[.]?[0-9]*'
     match_u = re.search(pattern_U, row)
 
     if match_u is None:
@@ -155,19 +166,17 @@ def backtransform_data_radial(data, cone_type, maximal_length, cone_angle_rad):
         List of strings, which describe the new GCode.
     """
     new_data = []
-    pattern_X = r'X[-0-9]+[.]?[0-9]*'
-    pattern_Y = r'Y[-0-9]+[.]?[0-9]*'
-    pattern_Z = r'Z[-0-9]+[.]?[0-9]*'
-    pattern_E = r'E[-0-9]+[.]?[0-9]*'
-    pattern_G = r'\AG[01] '
+    pattern_X = r'X[-0-9]*[.]?[0-9]*'
+    pattern_Y = r'Y[-0-9]*[.]?[0-9]*'
+    pattern_Z = r'Z[-0-9]*[.]?[0-9]*'
+    pattern_E = r'E[-0-9]*[.]?[0-9]*'
+    pattern_G = r'\AG[1] '
 
     x_old, y_old = 0, 0
     x_new, y_new = 0, 0
     z_layer = 0
-    angle_old = 0
     z_max = 0
     update_x, update_y = False, False
-    visible_print = False
     if cone_type == 'outward':
         c = -1
         inward_cone = False
@@ -222,12 +231,7 @@ def backtransform_data_radial(data, cone_type, maximal_length, cone_angle_rad):
                     if e_match is None and np.max(z_vals) > z_max:
                         np.minimum(z_vals, (z_max + 1), z_vals) # cut away all travel moves, that are higher than max height extruded + 1 mm safety
                         # das hier könnte noch verschönert werden, in dem dann eine alle abgeschnittenen Werte mit einer einer geraden Linie ersetzt werden
-                angle_new = compute_angle_radial(x_old_bt, y_old_bt, x_new_bt, y_new_bt, inward_cone)
-                angle_vals = np.array(
-                    [angle_old] + [
-                        compute_angle_radial(x_vals[k], y_vals[k], x_vals[k + 1], y_vals[k + 1], inward_cone)
-                        for k in range(0, num_segm)])
-                u_vals = compute_U_values(angle_vals)
+
                 distances_transformed = dist_transformed / num_segm * np.ones(num_segm)
                 distances_bt = np.array(
                     [np.linalg.norm([x_vals[i] - x_vals[i - 1], y_vals[i] - y_vals[i - 1], z_vals[i] - z_vals[i - 1]])
@@ -242,17 +246,7 @@ def backtransform_data_radial(data, cone_type, maximal_length, cone_angle_rad):
                     single_row = re.sub(pattern_Y, 'Y' + str(round(y_vals[j + 1], 3)), single_row)
                     single_row = re.sub(pattern_Z, 'Z' + str(round(z_vals[j + 1], 3)), single_row)
                     single_row = replace_E(single_row, distances_transformed[j], distances_bt[j], 1)
-                    if np.abs(u_vals[j + 1] - u_vals[j]) <= 30:
-                        single_row = insert_U(single_row, u_vals[j + 1])
-                    else:
-                        single_row = 'G1 E-0.800 \n' + 'G1 U' + str(u_vals[j + 1]) + ' \n' + 'G1 E0.800 \n' + single_row
                     replacement_rows = replacement_rows + single_row
-                if np.amax(np.absolute(u_vals)) > 3600:
-                    angle_reset = np.round(angle_vals[-1] * 360 / (2 * np.pi), 2)
-                    replacement_rows = replacement_rows + 'G92 U' + str(angle_reset) + '\n'
-                    angle_old = angle_new
-                else:
-                    angle_old = u_vals[-1] * 2 * np.pi / 360
                 row = replacement_rows
 
                 if update_x:
@@ -292,12 +286,11 @@ def translate_data(data, cone_type, translate_x, translate_y, z_desired, e_paral
         List of strings, which contains the translated GCode
     """
     new_data = []
-    pattern_X = r'X[-0-9]+[.]?[0-9]*'
-    pattern_Y = r'Y[-0-9]+[.]?[0-9]*'
-    pattern_Z = r'Z[-0-9]+[.]?[0-9]*'
-    pattern_E = r'E[-0-9]+[.]?[0-9]*'
-    pattern_U = r'U[-0-9]+[.]?[0-9]*'
-    pattern_G = r'\AG[01] '
+    pattern_X = r'X[-0-9]*[.]?[0-9]*'
+    pattern_Y = r'Y[-0-9]*[.]?[0-9]*'
+    pattern_Z = r'Z[-0-9]*[.]?[0-9]*'
+    pattern_E = r'E[-0-9]*[.]?[0-9]*'
+    pattern_G = r'\AG[1] '
     z_initialized = False
     u_val = 0.0
 
@@ -320,10 +313,6 @@ def translate_data(data, cone_type, translate_x, translate_y, z_desired, e_paral
         y_match = re.search(pattern_Y, row)
         z_match = re.search(pattern_Z, row)
         g_match = re.search(pattern_G, row)
-        u_match = re.search(pattern_U, row)
-
-        if u_match is not None:
-            u_val = np.radians(float(u_match.group(0).replace('U', '')))
 
         if g_match is None:
             new_data.append(row)
@@ -392,17 +381,9 @@ def backtransform_file(path, cone_type, maximal_length, angle_comp, x_shift, y_s
 
     return None
 
-
-# -----------------------------------------------------------------------------------------
-# Anwenden der Funktionen auf ein STL File
-# -----------------------------------------------------------------------------------------
-file_name = 'Oben_dunn.gcode'
-folder_name = 'G_Codes/'
-file_path = folder_name + file_name
-
 starttime = time.time()
-backtransform_file(path=file_path, cone_type='outward', maximal_length=0.5, angle_comp='radial', x_shift=100, y_shift=100,
-                   cone_angle_deg=15, z_desired=40.2, e_parallel=0, e_perpendicular=0)
+#PATH = FOLDER_NAME + FILE_NAME
+backtransform_file(path=FOLDER_NAME + FILE_NAME, cone_type=CONE_TYPE, maximal_length=0.5, angle_comp='radial', x_shift=X_SHIFT, y_shift=Y_SHIFT,
+                   cone_angle_deg=CONE_ANGLE, z_desired=FIRST_LAYER_HEIGHT, e_parallel=0, e_perpendicular=0)
 endtime = time.time()
 print('GCode translated, time used:', endtime - starttime)
-

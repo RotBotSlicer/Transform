@@ -3,6 +3,18 @@ from stl import mesh
 import time
 
 
+#-----------------------------------------------------------------------------------------
+# Transformation Settings
+#-----------------------------------------------------------------------------------------
+
+FILE_NAME = 'Testkoerper_fine4.stl'
+FOLDER_NAME_UNTRANSFORMED = 'STL_Modelle/'
+FOLDER_NAME_TRANSFORMED = 'Modelle_Transformiert_Kegel/'
+CONE_ANGLE = 17
+REFINEMENT_ITERATIONS = 1
+TRANSFORMATION_TYPE = 'outward'
+
+
 def transformation_kegel(points, cone_angle_rad, cone_type):
     """
     Computes the cone-transformation (x', y', z') = (x / cos(angle), y / cos(angle), z + \sqrt{x^{2} + y^{2}} * tan(angle))
@@ -92,20 +104,8 @@ def transformation_STL_file(path, cone_type, cone_angle_deg, nb_iterations):
     my_mesh_transformed = mesh.Mesh(my_mesh_transformed)
     return my_mesh_transformed
 
-
-#-----------------------------------------------------------------------------------------
-# Anwenden der Funktionen auf ein STL File
-#-----------------------------------------------------------------------------------------
-
-
-dateiname = 'Unten_dunn'
-ordnername_originale = 'STL_Modelle/'
-ordnername_transformierte = 'Modelle_Transformiert_Kegel/'
-dateipfad = ordnername_originale + dateiname + '.stl'
-transformations_typ = 'outward'
-
 startzeit = time.time()
-transformed_STL = transformation_STL_file(path=dateipfad, cone_type=transformations_typ, cone_angle_deg=15, nb_iterations=1)
-transformed_STL.save(ordnername_transformierte + dateiname + '_' + transformations_typ + '_transformiert.stl')
+transformed_STL = transformation_STL_file(path=FOLDER_NAME_UNTRANSFORMED + FILE_NAME, cone_type=TRANSFORMATION_TYPE, cone_angle_deg=CONE_ANGLE, nb_iterations=REFINEMENT_ITERATIONS)
+transformed_STL.save(FOLDER_NAME_TRANSFORMED + FILE_NAME + '_' + TRANSFORMATION_TYPE + '_' + str(CONE_ANGLE) + 'deg_transformed.stl')
 endzeit = time.time()
 print('Benoetigte Zeit:', endzeit - startzeit)
