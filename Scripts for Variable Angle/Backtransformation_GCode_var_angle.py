@@ -5,13 +5,13 @@ import time
 # -----------------------------------------------------------------------------------------
 # Transformation Settings
 # -----------------------------------------------------------------------------------------
-FILE_NAME = 'Hornet_03_SS_0.25mm_PLA_MINI_5h1m.gcode'
-FOLDER_NAME = 'G_Codes/'
-CONE_ANGLE = 17
-CONE_TYPE = 'outward'
-FIRST_LAYER_HEIGHT = 0.15
-X_SHIFT = 110
-Y_SHIFT = 110
+FILE_NAME = 'tower_01_B.gcode'      # filename including extension
+FOLDER_NAME = 'gcodes/'                              # name of the subfolder in which the gcode is located
+CONE_ANGLE = 16                                      # transformation angle
+CONE_TYPE = 'outward'                                # type of the cone: 'inward' & 'outward'
+FIRST_LAYER_HEIGHT = 0.2                            # moves all the gcode up to this height. Use also for stacking
+X_SHIFT = 110                                       # moves your gcode away from the origin into the center of the bed (usually bed size / 2)
+Y_SHIFT = 90
 
 
 def insert_Z(row, z_value):
@@ -372,7 +372,7 @@ def backtransform_file(path, cone_type, maximal_length, angle_comp, x_shift, y_s
     data_bt = translate_data(data_bt, cone_type, x_shift, y_shift, z_desired, e_parallel, e_perpendicular)
     data_bt_string = ''.join(data_bt)
 
-    path_write = re.sub(r'G_Codes', 'G_Codes_Backtransformed', path)
+    path_write = re.sub(r'gcodes', 'gcodes_backtransformed', path)
     path_write = re.sub(r'.gcode', '_bt_' + cone_type + '_' + angle_comp + '.gcode', path_write)
     print(path_write)
     with open(path_write, 'w+') as f_gcode_bt:
@@ -382,7 +382,6 @@ def backtransform_file(path, cone_type, maximal_length, angle_comp, x_shift, y_s
     return None
 
 starttime = time.time()
-#PATH = FOLDER_NAME + FILE_NAME
 backtransform_file(path=FOLDER_NAME + FILE_NAME, cone_type=CONE_TYPE, maximal_length=0.5, angle_comp='radial', x_shift=X_SHIFT, y_shift=Y_SHIFT,
                    cone_angle_deg=CONE_ANGLE, z_desired=FIRST_LAYER_HEIGHT, e_parallel=0, e_perpendicular=0)
 endtime = time.time()
