@@ -1,18 +1,8 @@
 import re
 import numpy as np
 import time
-
-# -----------------------------------------------------------------------------------------
-# Transformation Settings
-# -----------------------------------------------------------------------------------------
-FILE_NAME = 'tower_01_B.gcode'      # filename including extension
-FOLDER_NAME = 'gcodes/'                              # name of the subfolder in which the gcode is located
-CONE_ANGLE = 16                                      # transformation angle
-CONE_TYPE = 'outward'                                # type of the cone: 'inward' & 'outward'
-FIRST_LAYER_HEIGHT = 0.2                            # moves all the gcode up to this height. Use also for stacking
-X_SHIFT = 110                                       # moves your gcode away from the origin into the center of the bed (usually bed size / 2)
-Y_SHIFT = 90
-
+import argparse
+import os
 
 def insert_Z(row, z_value):
     """
@@ -333,11 +323,13 @@ def translate_data(data, cone_type, translate_x, translate_y, z_desired, e_paral
     return new_data
 
 
-def backtransform_file(path, cone_type, maximal_length, angle_comp, x_shift, y_shift, cone_angle_deg, z_desired, e_parallel, e_perpendicular):
+def backtransform_file(input_file, output_file, cone_type, maximal_length, angle_comp, x_shift, y_shift, cone_angle_deg, z_desired, e_parallel, e_perpendicular):
     """
     Read GCode from file, backtransform and translate it.
-    :param path: string
-        String with the path to the GCode-file
+    :param input_file: string
+        String with the path to the input GCode-file
+    :param output_file: string
+        String with the path to the output GCode-file
     :param cone_type: string
         String, either 'outward' or 'inward', defines which transformation should be used
     :param maximal_length: float
@@ -364,7 +356,7 @@ def backtransform_file(path, cone_type, maximal_length, angle_comp, x_shift, y_s
     if angle_comp == 'radial':
         backtransform_data = backtransform_data_radial
 
-    with open(path, 'r') as f_gcode:
+    with open(input_file, 'r') as f_gcode:
         data = f_gcode.readlines()
     data_bt = backtransform_data(data, cone_type, maximal_length, cone_angle_rad)
     data_bt_string = ''.join(data_bt)
@@ -372,17 +364,86 @@ def backtransform_file(path, cone_type, maximal_length, angle_comp, x_shift, y_s
     data_bt = translate_data(data_bt, cone_type, x_shift, y_shift, z_desired, e_parallel, e_perpendicular)
     data_bt_string = ''.join(data_bt)
 
-    path_write = re.sub(r'gcodes', 'gcodes_backtransformed', path)
-    path_write = re.sub(r'.gcode', '_bt_' + cone_type + '_' + angle_comp + '.gcode', path_write)
-    print(path_write)
-    with open(path_write, 'w+') as f_gcode_bt:
+    with open(output_file, 'w+') as f_gcode_bt:
         f_gcode_bt.write(data_bt_string)
-    print('File successfully backtransformed and translated.')
-
     return None
 
-starttime = time.time()
-backtransform_file(path=FOLDER_NAME + FILE_NAME, cone_type=CONE_TYPE, maximal_length=0.5, angle_comp='radial', x_shift=X_SHIFT, y_shift=Y_SHIFT,
-                   cone_angle_deg=CONE_ANGLE, z_desired=FIRST_LAYER_HEIGHT, e_parallel=0, e_perpendicular=0)
-endtime = time.time()
-print('GCode translated, time used:', endtime - starttime)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(prog='Conical Transform', description='Conical Transformation - Bactransform variable angle', formatter_class=lambda prog: argparse.HelpFormatter(prog,max_help_position=80))
+    parser.add_argument('-f', '--file', type=str, required=True, help='Relative or absolute path to the .gcode file (ie. tower_01_B.gcode)')
+    parser.add_argument('-o', '--output', type=str, default='gcodes',  help='Folder in which to save transformed .gcode file')
+    parser.add_argument('-a', '--angle', type=int, required=False,  help='Cone angle')
+    parser.add_argument('-r', '--reverse', action='store_true', required=False,  help='Reversed (invard cone)')
+    parser.add_argument('-l', '--layer', type=float, default=0.2, help='Moves all the gcode up to this height. Use also for stacking')
+    parser.add_argument('-x', type=int, default=110, help='Moves your gcode away from the origin into the center of the bed')
+    parser.add_argument('-y', type=int, default=90,  help='Moves your gcode away from the origin into the center of the bed')
+    args = parser.parse_args()
+
+    # Check if file exists
+    if not os.path.exists(args.file):
+        print("File `{}` does not exist!".format(args.file))
+        print("Aborting.")
+        exit()
+    # Check if right extension
+    elif not args.file.lower().endswith('.gcode'):
+        print("Unsupported file type. Expected '.gcode' (file:`{}`)!".format(args.file), re.MULTILINE)
+        print("Aborting.")
+        exit()
+
+    # Set tranformation settings
+    # 1) Use command line parameters first, if they are missing
+    # 2) Try to infer parameters from the filename
+    pattern = re.compile(r".*?transformed_(inward|outward)_([0-9]{1,3})deg.*?\.gcode")
+    filename_re = pattern.match(args.file, re.IGNORECASE)
+    if args.angle is not None and not args.reverse:
+        print("-- Using parameters from the command line")
+        if args.reverse:
+            cone_type = 'outward'
+        else:
+            cone_type = 'inward'
+        cone_angle = args.angle
+    elif filename_re is not None:
+        print("-- Using parameters inferred from the file name")
+        cone_type = filename_re.group(1).lower()
+        cone_angle = int(filename_re.group(2))
+    else:
+        print("Critical command lines arguments missing and could not infer them from the file name. Aborting.")
+        exit()
+
+    # Create new file name for transformed file
+    output_file_name = os.path.basename(args.file)
+    if output_file_name.lower().endswith('.gcode'):
+        output_file_name = output_file_name.replace('.gcode', '')
+    # Pattern is: (filename)_(transformation-type)_(cone-angle)deg_transformed.stl
+
+    output_file_name = "{}_bt_{}_{}deg.gcode".format(output_file_name, cone_type, cone_angle)
+    output_file_path = os.path.join(args.output, output_file_name)
+
+    # If output directory does not exist, create so we can save output file
+    if not os.path.isdir(args.output):
+        try:
+            os.makedirs(args.output)
+        except Exception as e:
+            print(e)
+            print("Failed to create output directory `{}`. Would not be able to save output file. Aborting.".format(args.output))
+            exit()
+
+    # Print requested parameters
+    print('-'*50)
+    print("Transforming:\t\t{}".format(args.file))
+    print("Saving output to:\t{}".format(output_file_path))
+    print("Cone type:\t\t{}".format(cone_type))
+    print("Cone angle:\t\t{}".format(cone_angle))
+    print("Shift X:\t\t{}".format(args.x))
+    print("Shift Y:\t\t{}".format(args.y))
+    print("First layer height:\t{}".format(args.layer))
+    print('-'*50)
+
+    # Begin transformation
+    print('Starting transformation... (this could take a while)')
+    start_time = time.time()
+    backtransform_file(input_file=args.file, output_file=output_file_path, cone_type=cone_type, maximal_length=0.5, angle_comp='radial', x_shift=args.x, y_shift=args.y,
+                       cone_angle_deg=cone_angle, z_desired=args.layer, e_parallel=0, e_perpendicular=0)
+    end_time = time.time()
+    print('GCode translated in {} seconds'.format(round(end_time-start_time, 2)))
