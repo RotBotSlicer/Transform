@@ -1,18 +1,8 @@
 import numpy as np
 from stl import mesh
 import time
-
-
-#-----------------------------------------------------------------------------------------
-# Transformation Settings
-#-----------------------------------------------------------------------------------------
-
-FILE_NAME = 'tower_01_-20'                       # Filename without extension
-FOLDER_NAME_UNTRANSFORMED = 'stl/'
-FOLDER_NAME_TRANSFORMED = 'stl_transformed/'    # Make sure this folder exists
-CONE_ANGLE = 16                                 # Transformation angle
-REFINEMENT_ITERATIONS = 1                       # refinement iterations of the stl. 2-3 is a good start for regular stls. If its already uniformaly fine, use 0 or 1. High number cause huge models and long script runtimes
-TRANSFORMATION_TYPE = 'outward'                 # type of the cone: 'inward' & 'outward'
+import os
+import argparse
 
 
 def transformation_kegel(points, cone_angle_rad, cone_type):
@@ -104,8 +94,71 @@ def transformation_STL_file(path, cone_type, cone_angle_deg, nb_iterations):
     my_mesh_transformed = mesh.Mesh(my_mesh_transformed)
     return my_mesh_transformed
 
-startzeit = time.time()
-transformed_STL = transformation_STL_file(path=FOLDER_NAME_UNTRANSFORMED + FILE_NAME + '.stl', cone_type=TRANSFORMATION_TYPE, cone_angle_deg=CONE_ANGLE, nb_iterations=REFINEMENT_ITERATIONS)
-transformed_STL.save(FOLDER_NAME_TRANSFORMED + FILE_NAME + '_' + TRANSFORMATION_TYPE + '_' + str(CONE_ANGLE) + 'deg_transformed.stl')
-endzeit = time.time()
-print('Transformation time:', endzeit - startzeit)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(prog='Conical Transform', description='Conical Transformation - Variable angle', formatter_class=lambda prog: argparse.HelpFormatter(prog,max_help_position=80))
+    parser.add_argument('-f', '--file', type=str, required=True, help='Relative or absolute path to the .stl file (ie. tower_01_-20)')
+    parser.add_argument('-o', '--output', type=str, default='stl_transformed',  help='Folder in which to save transformed .stl file')
+    parser.add_argument('-a', '--angle', type=int, default=16,  help='Transformation angle')
+    parser.add_argument('-i', '--iterations', type=int, default=1, help='Refinement iterations of the stl')
+    parser.add_argument('-r', '--reverse', action='store_true', default=False,  help='Reverse transformation type (set this flag for inward transformation)')
+    parser.add_argument('--absolute', action='store_true', default=False,  help='Force use of absolute paths')
+    args = parser.parse_args()
+
+    # Check if file exists
+    if not os.path.exists(args.file):
+        print("File `{}` does not exist!".format(args.file))
+        print("Aborting.")
+        exit()
+    # Check if right extension
+    elif not args.file.lower().endswith('.stl'):
+        print("Unsupported file type. Expected '.stl' (file:`{}`)!".format(args.file))
+        print("Aborting.")
+        exit()
+
+    # Check if output folder exists
+    if not os.path.exists(args.output):
+        print("Output folder `{}` does not exist. Creating...".format(args.output))
+        try:
+            os.mkdir(args.output)
+        except Exception as e:
+            print(e)
+            print("Failed to create directory `{}`".format(args.output))
+            exit()
+
+    # Set transformation type
+    if not args.reverse:
+        transformation_type = 'outward'
+    else:
+        transformation_type = 'inward'
+
+    # Create new file name for transformed file
+    output_file_name = os.path.basename(args.file)
+    if output_file_name.lower().endswith('.stl'):
+        output_file_name = output_file_name.replace('.stl', '')
+    # Pattern is: (filename)_transformed_(transformation-type)_(cone-angle)deg_transformed.stl
+    output_file_name = "{}_transformed_{}_{}deg.stl".format(output_file_name, transformation_type, args.angle)
+    output_file_path = os.path.join(args.output, output_file_name)
+
+    # Force use of absolute paths (convenience and debugging)
+    if args.absolute:
+        args.file = os.path.abspath(args.file)
+        output_file_path = os.path.abspath(output_file_path)
+
+    # Print requested parameters
+    print('-'*50)
+    print("Transforming:\t\t{}".format(args.file))
+    print("Saving output to:\t{}".format(output_file_path))
+    print("Cone angle:\t\t{}".format(args.angle))
+    print("Refinement iterations:\t{}".format(args.iterations))
+    print("Transformation type:\t{}".format(transformation_type))
+    print('-'*50)
+
+    # Begin transformation
+    print('Starting transformation... (this could take a while)')
+    start_time = time.time()
+    transformed_STL = transformation_STL_file(path=args.file, cone_type=transformation_type, cone_angle_deg=args.angle, nb_iterations=args.iterations)
+    transformed_STL.save(output_file_path)
+    end_time = time.time()
+    print('Done.')
+    print('Transformation took {} seconds'.format( round(end_time-start_time, 2) ))
