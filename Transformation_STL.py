@@ -2,121 +2,75 @@ import numpy as np
 from stl import mesh
 import time
 import os
+import sys
 
 
 def refinement_one_triangle(triangle):
-    """
-    Compute a refinement of one triangle. On every side, the midpoint is added. The three corner points and three
-    midpoints result in four smaller triangles.
-    :param triangle: array
-        array of three points of shape (3, 3) (one triangle)
-    :return: array
-        array of shape (4, 3, 3) of four triangles
-    """
-    point1 = triangle[0]
-    point2 = triangle[1]
-    point3 = triangle[2]
-    midpoint12 = (point1 + point2) / 2
-    midpoint23 = (point2 + point3) / 2
-    midpoint31 = (point3 + point1) / 2
-    triangle1 = np.array([point1, midpoint12, midpoint31])
-    triangle2 = np.array([point2, midpoint23, midpoint12])
-    triangle3 = np.array([point3, midpoint31, midpoint23])
-    triangle4 = np.array([midpoint12, midpoint23, midpoint31])
-    return np.array([triangle1, triangle2, triangle3, triangle4])
+    """Refines one triangle into four smaller triangles."""
+    point1, point2, point3 = triangle
+    midpoints = (triangle + np.roll(triangle, -1, axis=0)) / 2
+    return np.array([
+        [point1, midpoints[0], midpoints[2]],
+        [point2, midpoints[1], midpoints[0]],
+        [point3, midpoints[2], midpoints[1]],
+        midpoints
+    ])
 
 
 def refinement_triangulation(triangle_array, num_iterations):
-    """
-    Compute a refinement of a triangulation using the refinement_four_triangles function.
-    The number of iteration defines, how often the triangulation has to be refined; n iterations lead to
-    4^n times many triangles.
-    :param triangle_array: array
-        array of shape (num_triangles, 3, 3) of triangles
-    :param num_iterations: int
-    :return: array
-        array of shape (num_triangles*4^num_iterations, 3, 3) of triangles
-    """
+    """Refines the entire triangulation multiple times."""
     refined_array = triangle_array
-    for i in range(0, num_iterations):
-        n_triangles = refined_array.shape[0] * 4
-        refined_array = np.array(list(map(refinement_one_triangle, refined_array)))
-        refined_array = np.reshape(refined_array, (n_triangles, 3, 3))
+    for _ in range(num_iterations):
+        refined_array = np.concatenate(
+            [refinement_one_triangle(triangle) for triangle in refined_array],
+            axis=0
+        )
     return refined_array
 
 
 def transformation_cone(points, cone_type):
-    """
-    Compute the cone-transformation (x', y', z') = (\sqrt{2}x, \sqrt{2}y, z + \sqrt{x^{2} + y^{2}}) ('outward') or
-    (x', y', z') = (\sqrt{2}x, \sqrt{2}y, z - \sqrt{x^{2} + y^{2}}) ('inward') for a list of points
-    :param points: array
-        array of points of shape ( , 3)
-    :param cone_type: string
-        String, either 'outward' or 'inward', defines which transformation should be used
-    :return: array
-        array of transformed points, of same shape as input array
-    """
-    if cone_type == 'outward':
-        c = 1
-    elif cone_type == 'inward':
-        c = -1
-    else:
-        raise ValueError('{} is not a admissible type for the transformation'.format(cone_type))
-    T = (lambda x, y, z: np.array([np.sqrt(2) * x, np.sqrt(2) * y, z + c * np.sqrt(x ** 2 + y ** 2)]))
-    points_transformed = list(map(T, points[:, 0], points[:, 1], points[:, 2]))
-    return np.array(points_transformed)
+    """Applies a cone transformation to an array of points."""
+    c = 1 if cone_type == 'outward' else -1
+    return np.array([
+        [np.sqrt(2) * x, np.sqrt(2) * y, z + c * np.sqrt(x ** 2 + y ** 2)]
+        for x, y, z in points
+    ])
 
 
 def transformation_STL_file(path, output_dir, cone_type, nb_iterations):
-    """
-    Read a stl-file, refine the triangulation, transform it according to the cone-transformation and save the
-    transformed data.
-    :param path: string
-        path to the stl file
-    :param output_dir:
-        path of directory, where transformed STL-file will be saved
-    :param cone_type: string
-        String, either 'outward' or 'inward', defines which transformation should be used
-    :param nb_iterations: int
-        number of iterations, the triangulation should be refined before the transformation
-    :return: mesh object
-        transformed triangulation as mesh object which can be stored as stl file
-    """
-    start = time.time()
+    """Transforms an STL file."""
+    start_time = time.time()
+    
     my_mesh = mesh.Mesh.from_file(path)
     vectors = my_mesh.vectors
-    vectors_refined = refinement_triangulation(vectors, nb_iterations)
-    vectors_refined = np.reshape(vectors_refined, (-1, 3))
-    vectors_transformed = transformation_cone(vectors_refined, cone_type)
-    vectors_transformed = np.reshape(vectors_transformed, (-1, 3, 3))
-    my_mesh_transformed = np.zeros(vectors_transformed.shape[0], dtype=mesh.Mesh.dtype)
-    my_mesh_transformed['vectors'] = vectors_transformed
-    my_mesh_transformed = mesh.Mesh(my_mesh_transformed)
+    print(f'Initial number of triangles: {vectors.shape[0]}')
+
+    refined_vectors = refinement_triangulation(vectors, nb_iterations)
+    print(f'Refined number of triangles: {refined_vectors.shape[0]}')
+
+    transformed_vectors = transformation_cone(refined_vectors.reshape(-1, 3), cone_type).reshape(-1, 3, 3)
+
+    transformed_mesh = mesh.Mesh(np.zeros(transformed_vectors.shape[0], dtype=mesh.Mesh.dtype))
+    transformed_mesh.vectors = transformed_vectors
 
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
-    file_name = file_path[file_path.rfind('/'):]
-    file_name = file_name.replace('.stl', '_' + transformation_type + '_transformed.stl')
-    output_path = output_dir + file_name
-    my_mesh_transformed.save(output_path)
-    end = time.time()
-    print('STL file generated in {:.1f}s, saved in {}'.format(end - start, output_path))
-    return None
+
+    output_path = os.path.join(output_dir, os.path.basename(path).replace('.stl', f'_{cone_type}_transformed.stl'))
+    transformed_mesh.save(output_path)
+
+    end_time = time.time()
+    print(f'STL file generated in {end_time - start_time:.1f}s, saved in {output_path}')
 
 
-# -------------------------------------------------------------------------------
-# Apply the functions for a STL file
-# -------------------------------------------------------------------------------
+if __name__ == '__main__':
+    if len(sys.argv) < 3:
+        print("Usage: python script.py <input_file> <output_dir>")
+        sys.exit(1)
 
-# STL transformation function parameters
-file_path = '/path/to/stl/file.stl'
-dir_transformed = '/path/to/save/transformation/'
-transformation_type = 'inward'  # inward or outward
-number_iterations = 4   # number iterations for triangulation refinement
+    file_path = sys.argv[1]
+    dir_transformed = sys.argv[2]
+    transformation_type = 'inward'  # Options: 'inward' or 'outward'
+    number_iterations = 4  # Number of iterations for triangulation refinement
 
-# STL transformation function call
-transformation_STL_file(path=file_path,
-                        output_dir=dir_transformed,
-                        cone_type=transformation_type,
-                        nb_iterations=number_iterations,
-                        )
+    transformation_STL_file(file_path, dir_transformed, transformation_type, number_iterations)
